@@ -9,6 +9,7 @@ host here. Each container on that endpoint becomes one service.
 """
 
 import logging
+import re
 
 import requests
 
@@ -19,9 +20,9 @@ logger = logging.getLogger("homelab-map.portainer")
 
 def _guess_host_type(name: str) -> str:
     name_lower = name.lower()
-    if "pi" in name_lower or "raspberry" in name_lower:
+    if "raspberry" in name_lower or re.search(r"\bpi\b", name_lower):
         return "raspberry_pi"
-    if "mac" in name_lower:
+    if "mac" in name_lower or "mini" in name_lower:
         return "mac"
     return "linux"
 

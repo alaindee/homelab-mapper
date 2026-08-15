@@ -104,8 +104,8 @@ def upsert_host_by_source(conn, name, type_, ip, description, source, portainer_
         ).fetchone()
         if row:
             conn.execute(
-                "UPDATE hosts SET name = ?, ip = ?, description = ? WHERE id = ?",
-                (name, ip, description, row["id"]),
+                "UPDATE hosts SET name = ?, type = ?, ip = ?, description = ? WHERE id = ?",
+                (name, type_, ip, description, row["id"]),
             )
             return row["id"]
 
