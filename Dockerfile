@@ -9,6 +9,7 @@ COPY app.py db.py portainer_sync.py demo_data.py ./
 COPY templates ./templates
 
 VOLUME ["/data"]
+ENV DB_PATH=/data/homelab.db
 EXPOSE 5000
 
 CMD ["python3", "app.py"]

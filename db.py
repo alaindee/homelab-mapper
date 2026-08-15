@@ -5,12 +5,13 @@ Kept intentionally simple (no ORM) to match the project's philosophy:
 single-file, easy to inspect/back up, no build step.
 """
 
+import os
 import sqlite3
 import time
 import uuid
 from pathlib import Path
 
-DB_PATH = Path("/tmp/homelab_data/homelab.db")
+DB_PATH = Path(os.environ.get("DB_PATH", "/tmp/homelab_data/homelab.db"))
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS hosts (
