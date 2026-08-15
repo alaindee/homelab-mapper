@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homelab Map</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-border: #262b38;
+    --text: #e6e8ee;
+    --text-dim: #8b90a0;
+    --accent: #5b8def;
+    --green: #3fb950;
+    --red: #f85149;
+    --amber: #d29922;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  header h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+  .demo-badge {
+    background: var(--amber);
+    color: #1a1a1a;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-left: 10px;
+  }
+  .view-toggle {
+    display: flex;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .view-toggle button {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .view-toggle button.active {
+    background: var(--accent);
+    color: white;
+  }
+  main {
+    position: relative;
+    height: calc(100vh - 65px);
+    overflow: auto;
+  }
+
+  /* --- Diagram view --- */
+  #diagram-view {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  #diagram-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  #diagram-svg line {
+    stroke: var(--panel-border);
+    stroke-width: 2;
+  }
+  .hub-node {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    text-align: center;
+    transform: translate(-50%, -50%);
+  }
+  .host-node {
+    position: absolute;
+    width: 150px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .host-node:hover {
+    border-color: var(--accent);
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+  .host-node.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(91,141,239,0.3);
+  }
+  .host-node .host-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .host-node .host-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  .status-dot.running { background: var(--green); }
+  .status-dot.stopped { background: var(--red); }
+  .status-dot.unknown { background: var(--text-dim); }
+
+  /* --- Side panel --- */
+  #side-panel {
+    position: fixed;
+    top: 65px;
+    right: 0;
+    width: 360px;
+    height: calc(100vh - 65px);
+    background: var(--panel);
+    border-left: 1px solid var(--panel-border);
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+    padding: 20px;
+    z-index: 10;
+  }
+  #side-panel.open { transform: translateX(0); }
+  #side-panel h2 {
+    font-size: 16px;
+    margin: 0 0 4px 0;
+  }
+  #side-panel .host-ip {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .metric-bar {
+    height: 6px;
+    background: #262b38;
+    border-radius: 3px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .metric-bar-fill {
+    height: 100%;
+    background: var(--accent);
+  }
+  .service-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--panel-border);
+    font-size: 13px;
+  }
+  .service-item .service-type-tag {
+    font-size: 10px;
+    color: var(--text-dim);
+    border: 1px solid var(--panel-border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+  }
+  #close-panel {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    float: right;
+  }
+
+  /* --- Table view --- */
+  #table-view {
+    display: none;
+    padding: 20px 24px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  th {
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex; align-items:center;">
+    <h1>Homelab Map</h1>
+    <span id="demo-badge" class="demo-badge" style="display:none;">DEMO DATA</span>
+  </div>
+  <div class="view-toggle">
+    <button id="btn-diagram" class="active">Diagram</button>
+    <button id="btn-table">Table</button>
+  </div>
+</header>
+
+<main>
+  <div id="diagram-view">
+    <svg id="diagram-svg"></svg>
+  </div>
+
+  <div id="table-view">
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Service</th>
+          <th>Host</th>
+          <th>Type</th>
+          <th>Port</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</main>
+
+<div id="side-panel">
+  <button id="close-panel">Close</button>
+  <h2 id="panel-host-name"></h2>
+  <div class="host-ip" id="panel-host-ip"></div>
+
+  <div id="panel-metrics"></div>
+
+  <h3 style="font-size:13px; color:var(--text-dim); margin-top:20px;">SERVICES</h3>
+  <div id="panel-services"></div>
+</div>
+
+<script>
+let currentData = null;
+
+function fmtUptime(seconds) {
+  if (!seconds) return "-";
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+}
+
+function metricBar(label, pct) {
+  pct = pct == null ? 0 : pct;
+  return `
+    <div class="metric-row"><span>${label}</span><span>${pct.toFixed(0)}%</span></div>
+    <div class="metric-bar"><div class="metric-bar-fill" style="width:${pct}%"></div></div>
+  `;
+}
+
+function renderDiagram(hosts) {
+  const view = document.getElementById('diagram-view');
+  const svg = document.getElementById('diagram-svg');
+  // clear previous nodes (keep svg)
+  view.querySelectorAll('.host-node, .hub-node').forEach(el => el.remove());
+  svg.innerHTML = '';
+
+  const rect = view.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const radius = Math.min(rect.width, rect.height) * 0.32;
+
+  const hub = document.createElement('div');
+  hub.className = 'hub-node';
+  hub.style.left = cx + 'px';
+  hub.style.top = cy + 'px';
+  hub.textContent = 'HOMELAB';
+  view.appendChild(hub);
+
+  hosts.forEach((host, i) => {
+    const angle = (2 * Math.PI * i) / hosts.length - Math.PI / 2;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', cx); line.setAttribute('y1', cy);
+    line.setAttribute('x2', x); line.setAttribute('y2', y);
+    svg.appendChild(line);
+
+    const runningCount = host.services.filter(s => s.status === 'running').length;
+    const totalCount = host.services.length;
+    const overallStatus = totalCount === 0 ? 'unknown' : (runningCount === totalCount ? 'running' : (runningCount === 0 ? 'stopped' : 'unknown'));
+
+    const node = document.createElement('div');
+    node.className = 'host-node';
+    node.style.left = x + 'px';
+    node.style.top = y + 'px';
+    node.dataset.hostId = host.id;
+    node.innerHTML = `
+      <div class="host-name"><span class="status-dot ${overallStatus}"></span>${host.name}</div>
+      <div class="host-meta">${totalCount} service${totalCount === 1 ? '' : 's'} &middot; ${host.type.replace('_',' ')}</div>
+    `;
+    node.addEventListener('click', () => openPanel(host));
+    view.appendChild(node);
+  });
+}
+
+function openPanel(host) {
+  document.querySelectorAll('.host-node').forEach(n => n.classList.toggle('selected', n.dataset.hostId === host.id));
+
+  document.getElementById('panel-host-name').textContent = host.name;
+  document.getElementById('panel-host-ip').textContent = host.ip ? `${host.ip} · ${host.description || ''}` : (host.description || '');
+
+  const m = host.metrics;
+  document.getElementById('panel-metrics').innerHTML = m ? `
+    ${metricBar('CPU', m.cpu_pct)}
+    ${metricBar('Memory', m.mem_pct)}
+    ${metricBar('Disk', m.disk_pct)}
+    <div class="metric-row"><span>Uptime</span><span>${fmtUptime(m.uptime_seconds)}</span></div>
+  ` : `<div style="color:var(--text-dim); font-size:13px;">No metrics reported yet - see the agent script in the README to enable this.</div>`;
+
+  document.getElementById('panel-services').innerHTML = host.services.length ? host.services.map(s => `
+    <div class="service-item">
+      <span><span class="status-dot ${s.status}"></span>${s.name}<span class="service-type-tag">${s.type}</span></span>
+      <span style="color:var(--text-dim);">${s.port || ''}</span>
+    </div>
+  `).join('') : `<div style="color:var(--text-dim); font-size:13px;">No services catalogued for this host yet.</div>`;
+
+  document.getElementById('side-panel').classList.add('open');
+}
+
+document.getElementById('close-panel').addEventListener('click', () => {
+  document.getElementById('side-panel').classList.remove('open');
+  document.querySelectorAll('.host-node').forEach(n => n.classList.remove('selected'));
+});
+
+function renderTable(services) {
+  const body = document.getElementById('table-body');
+  body.innerHTML = services.map(s => `
+    <tr>
+      <td><span class="status-dot ${s.status}"></span></td>
+      <td>${s.name}</td>
+      <td>${s.host_name}</td>
+      <td>${s.type}</td>
+      <td>${s.port || '-'}</td>
+      <td>${s.url ? `<a href="${s.url}" target="_blank" style="color:var(--accent);">open</a>` : ''}</td>
+    </tr>
+  `).join('');
+}
+
+async function loadMap() {
+  const res = await fetch('/api/map');
+  const data = await res.json();
+  currentData = data;
+  document.getElementById('demo-badge').style.display = data.demo ? 'inline-block' : 'none';
+  renderDiagram(data.hosts);
+}
+
+async function loadTable() {
+  const res = await fetch('/api/table');
+  const data = await res.json();
+  document.getElementById('demo-badge').style.display = data.demo ? 'inline-block' : 'none';
+  renderTable(data.services);
+}
+
+document.getElementById('btn-diagram').addEventListener('click', () => {
+  document.getElementById('btn-diagram').classList.add('active');
+  document.getElementById('btn-table').classList.remove('active');
+  document.getElementById('diagram-view').style.display = 'block';
+  document.getElementById('table-view').style.display = 'none';
+  loadMap();
+});
+
+document.getElementById('btn-table').addEventListener('click', () => {
+  document.getElementById('btn-table').classList.add('active');
+  document.getElementById('btn-diagram').classList.remove('active');
+  document.getElementById('table-view').style.display = 'block';
+  document.getElementById('diagram-view').style.display = 'none';
+  document.getElementById('side-panel').classList.remove('open');
+  loadTable();
+});
+
+window.addEventListener('resize', () => { if (currentData) renderDiagram(currentData.hosts); });
+
+loadMap();
+setInterval(() => {
+  if (document.getElementById('diagram-view').style.display !== 'none') loadMap();
+}, 30000);
+</script>
+
+</body>
+</html>

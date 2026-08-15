@@ -1,0 +1,18 @@
+services:
+  homelab-map:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homelab-map
+    restart: unless-stopped
+    volumes:
+      - ./volumes/homelab-map:/data
+    ports:
+      - "5000:5000"
+    networks:
+      - homelab-map-network
+
+networks:
+  homelab-map-network:
+    driver: bridge
+    name: homelab-map-network
