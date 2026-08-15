@@ -6,7 +6,9 @@
 #
 # Usage: set the two variables below, then add to cron or a launchd job,
 # e.g. every minute via `crontab -e`:
-#   * * * * * /path/to/report-metrics-mac.sh >> /tmp/homelab-map-agent.log 2>&1
+#   * * * * * /path/to/report-metrics-mac.sh >> /path/to/homelab-map-agent.log 2>&1
+# (use a path in your own home directory, not /tmp, since /tmp gets
+# cleared on reboot)
 
 set -eu
 

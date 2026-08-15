@@ -109,8 +109,12 @@ AGENT_TOKEN="the_token_from_step_1"
 chmod +x report-metrics-linux.sh
 crontab -e
 # add this line:
-* * * * * /path/to/report-metrics-linux.sh >> /var/log/homelab-map-agent.log 2>&1
+* * * * * /path/to/report-metrics-linux.sh >> /path/to/homelab-map-agent.log 2>&1
 ```
+Point the log at somewhere in your own home directory, not `/var/log` —
+cron runs this as your regular user, and `/var/log` needs root, so that
+redirect fails silently and you get no log at all.
+
 (On macOS, `crontab -e` works the same way; you may need to grant cron/
 Terminal "Full Disk Access" in System Settings → Privacy & Security for the
 disk usage check to work correctly.)

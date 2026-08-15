@@ -5,7 +5,9 @@
 # Works on any standard Linux, including Raspberry Pi OS.
 #
 # Usage: set the two variables below, then add to cron, e.g. every minute:
-#   * * * * * /path/to/report-metrics-linux.sh >> /var/log/homelab-map-agent.log 2>&1
+#   * * * * * /path/to/report-metrics-linux.sh >> /path/to/homelab-map-agent.log 2>&1
+# (use a path in your own home directory - /var/log needs root and cron
+# runs as your regular user, so a /var/log redirect fails silently)
 
 set -eu
 
