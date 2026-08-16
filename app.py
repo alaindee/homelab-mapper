@@ -11,11 +11,13 @@ Single-page vanilla JS/CSS frontend, no build step - matches the project's
 other homelab tools.
 """
 
+import hmac
 import logging
+import os
 import threading
 import time
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 
 import db
 import demo_data
@@ -29,6 +31,36 @@ app = Flask(__name__)
 db.init_db()
 
 SYNC_INTERVAL_SECONDS = 120
+
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+
+
+# ---------------------------------------------------------------------------
+# Auth - only enforced if ADMIN_PASSWORD is set, so existing deployments
+# without it keep working exactly as before (open on a trusted LAN).
+# /api/metrics is exempt - it has its own per-host agent-token auth, and
+# the cron/launchd agent scripts can't do an HTTP Basic Auth handshake.
+# ---------------------------------------------------------------------------
+
+
+@app.before_request
+def _require_auth():
+    if not ADMIN_PASSWORD:
+        return None
+    if request.path.startswith("/api/metrics"):
+        return None
+
+    auth = request.authorization
+    if (
+        not auth
+        or not hmac.compare_digest(auth.username or "", ADMIN_USERNAME)
+        or not hmac.compare_digest(auth.password or "", ADMIN_PASSWORD)
+    ):
+        return Response(
+            "Authentication required", 401, {"WWW-Authenticate": 'Basic realm="homelab-map"'}
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------

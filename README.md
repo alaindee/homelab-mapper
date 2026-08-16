@@ -121,18 +121,38 @@ disk usage check to work correctly.)
 
 Metrics should appear in the host's side panel within a minute.
 
+## Managing hosts, services, and Portainer endpoints from the UI
+
+There's a **Settings** tab in the web UI for adding/removing hosts,
+services, and Portainer endpoints without touching `curl` — everything
+documented above via the API works there too. The `curl` commands are
+still there in this README since they're handy for scripting a one-time
+setup, but day-to-day management can happen entirely in the browser now.
+
+## Enabling authentication
+
+By default there's no authentication — fine on a trusted LAN. If this is
+reachable beyond that (e.g. via a Cloudflare Tunnel or port-forward), set
+these two environment variables to turn on HTTP Basic Auth for the whole
+app (UI and API alike):
+
+```yaml
+# in docker-compose.yml, under the homelab-map service:
+environment:
+  - ADMIN_USERNAME=admin
+  - ADMIN_PASSWORD=choose_a_real_password
+```
+
+`ADMIN_USERNAME` defaults to `admin` if not set. Leave `ADMIN_PASSWORD`
+unset and the app behaves exactly as before (open). The one exception is
+`/api/metrics` — that keeps its own per-host agent-token check regardless,
+since the cron/launchd agent scripts can't do a Basic Auth handshake.
+Basic Auth sends credentials in cleartext unless the connection is over
+HTTPS, so put this behind a reverse proxy with TLS (NPM, Cloudflare
+Tunnel, etc.) rather than relying on Basic Auth alone over plain HTTP.
+
 ## Known limitations (current version)
 
-- **No admin UI yet for adding hosts/services/Portainer endpoints** — all
-  of that goes through the API directly via `curl`, as shown above. This is
-  the most obvious next thing to build if you want to hand this to
-  non-technical housemates/roommates, but for a homelab admin managing
-  their own infrastructure, the curl commands above are a one-time setup
-  per host.
-- **No authentication on the web UI itself** — anyone who can reach port
-  5000 can view (and, via the API, modify) the inventory. Fine on a
-  trusted LAN; if exposing via Cloudflare Tunnel, put it behind Cloudflare
-  Access (or similar) rather than leaving it open.
 - **Metrics history isn't kept** — only the latest snapshot per host is
   stored, no historical graphs. Fine for "is this thing healthy right now,"
   not a replacement for a real monitoring stack (Netdata/Beszel) if you
@@ -143,10 +163,8 @@ Metrics should appear in the host's side panel within a minute.
 ## Sharing this with other homelabers
 
 If you want to open-source this, worth adding before publishing:
-- A simple auth layer (even basic HTTP auth would cover most homelab needs)
-- A basic settings page in the UI for the host/service/Portainer-endpoint
-  management, instead of requiring curl
 - Environment-variable-based initial admin token instead of an open API
+  by default (currently opt-in via `ADMIN_PASSWORD` — see above)
 
 The core data model (hosts → services, Portainer-sourced or manual, plus a
 lightweight cross-platform metrics agent) is the reusable part — the gaps

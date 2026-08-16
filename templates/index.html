@@ -236,6 +236,89 @@
     letter-spacing: 0.03em;
   }
   tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* --- Settings view --- */
+  #settings-view {
+    display: none;
+    padding: 20px 24px;
+    max-width: 900px;
+  }
+  .settings-section {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .settings-section h2 {
+    font-size: 15px;
+    margin: 0 0 14px 0;
+  }
+  .settings-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--panel-border);
+    font-size: 13px;
+  }
+  .settings-list-item:last-child { border-bottom: none; }
+  .settings-list-item .item-meta { color: var(--text-dim); font-size: 12px; }
+  .host-services-block {
+    margin: 8px 0 4px 0;
+    padding-left: 12px;
+    border-left: 2px solid var(--panel-border);
+  }
+  .btn-delete {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--red);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--accent);
+    border: none;
+    color: white;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .settings-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .settings-form input, .settings-form select {
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .settings-form .full-width { grid-column: 1 / -1; }
+  .form-error {
+    color: var(--red);
+    font-size: 12px;
+    margin-top: 8px;
+    display: none;
+  }
 </style>
 </head>
 <body>
@@ -248,6 +331,7 @@
   <div class="view-toggle">
     <button id="btn-diagram" class="active">Diagram</button>
     <button id="btn-table">Table</button>
+    <button id="btn-settings">Settings</button>
   </div>
 </header>
 
@@ -270,6 +354,55 @@
       </thead>
       <tbody id="table-body"></tbody>
     </table>
+  </div>
+
+  <div id="settings-view">
+    <div class="settings-section">
+      <h2>Hosts</h2>
+      <div id="settings-hosts-list"></div>
+      <form id="form-add-host" class="settings-form">
+        <input name="name" placeholder="Name" required>
+        <select name="type">
+          <option value="linux">linux</option>
+          <option value="raspberry_pi">raspberry_pi</option>
+          <option value="mac">mac</option>
+          <option value="other">other</option>
+        </select>
+        <input name="ip" placeholder="IP (optional)">
+        <input name="description" placeholder="Description (optional)" class="full-width">
+        <button type="submit" class="btn-primary full-width">Add host</button>
+      </form>
+      <div class="form-error" id="error-add-host"></div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Add a service</h2>
+      <form id="form-add-service" class="settings-form">
+        <select name="host_id" id="service-host-select" required></select>
+        <input name="name" placeholder="Service name" required>
+        <input name="port" placeholder="Port (optional)" type="number">
+        <input name="url" placeholder="URL (optional)" class="full-width">
+        <input name="notes" placeholder="Notes (optional)" class="full-width">
+        <button type="submit" class="btn-primary full-width">Add service</button>
+      </form>
+      <div class="form-error" id="error-add-service"></div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Portainer endpoints</h2>
+      <div id="settings-portainer-list"></div>
+      <form id="form-add-portainer" class="settings-form">
+        <input name="name" placeholder="Name" required>
+        <input name="base_url" placeholder="https://host:9443" required>
+        <input name="api_key" placeholder="API key" type="password" required class="full-width">
+        <button type="submit" class="btn-primary full-width">Add endpoint</button>
+      </form>
+      <div class="form-error" id="error-add-portainer"></div>
+      <div style="margin-top:14px; display:flex; align-items:center; gap:10px;">
+        <button id="btn-sync-now" class="btn-secondary">Sync now</button>
+        <span id="sync-status" style="font-size:12px; color:var(--text-dim);"></span>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -407,24 +540,179 @@ async function loadTable() {
   renderTable(data.services);
 }
 
-document.getElementById('btn-diagram').addEventListener('click', () => {
-  document.getElementById('btn-diagram').classList.add('active');
-  document.getElementById('btn-table').classList.remove('active');
-  document.getElementById('diagram-view').style.display = 'block';
-  document.getElementById('table-view').style.display = 'none';
-  loadMap();
-});
+function setActiveView(view) {
+  document.getElementById('btn-diagram').classList.toggle('active', view === 'diagram');
+  document.getElementById('btn-table').classList.toggle('active', view === 'table');
+  document.getElementById('btn-settings').classList.toggle('active', view === 'settings');
+  document.getElementById('diagram-view').style.display = view === 'diagram' ? 'block' : 'none';
+  document.getElementById('table-view').style.display = view === 'table' ? 'block' : 'none';
+  document.getElementById('settings-view').style.display = view === 'settings' ? 'block' : 'none';
+  if (view !== 'diagram') document.getElementById('side-panel').classList.remove('open');
+}
 
-document.getElementById('btn-table').addEventListener('click', () => {
-  document.getElementById('btn-table').classList.add('active');
-  document.getElementById('btn-diagram').classList.remove('active');
-  document.getElementById('table-view').style.display = 'block';
-  document.getElementById('diagram-view').style.display = 'none';
-  document.getElementById('side-panel').classList.remove('open');
-  loadTable();
-});
+document.getElementById('btn-diagram').addEventListener('click', () => { setActiveView('diagram'); loadMap(); });
+document.getElementById('btn-table').addEventListener('click', () => { setActiveView('table'); loadTable(); });
+document.getElementById('btn-settings').addEventListener('click', () => { setActiveView('settings'); loadSettings(); });
 
 window.addEventListener('resize', () => { if (currentData) renderDiagram(currentData.hosts); });
+
+// --- Settings view ---
+
+function showFormError(id, message) {
+  const el = document.getElementById(id);
+  el.textContent = message;
+  el.style.display = 'block';
+}
+
+function hideFormError(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+function renderSettingsHosts(hosts) {
+  const el = document.getElementById('settings-hosts-list');
+  el.innerHTML = hosts.length ? hosts.map(h => `
+    <div class="settings-list-item" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span><strong>${h.name}</strong> <span class="item-meta">${h.type} &middot; ${h.source}${h.ip ? ' &middot; ' + h.ip : ''}</span></span>
+        <button class="btn-delete" data-delete-host="${h.id}">Remove host</button>
+      </div>
+      <div class="host-services-block">
+        ${h.services.length ? h.services.map(s => `
+          <div class="settings-list-item">
+            <span>${s.name} <span class="item-meta">${s.type}${s.port ? ' &middot; :' + s.port : ''}</span></span>
+            <button class="btn-delete" data-delete-service="${s.id}">Remove</button>
+          </div>
+        `).join('') : '<div class="item-meta" style="padding:6px 0;">No services yet.</div>'}
+      </div>
+    </div>
+  `).join('') : '<div class="item-meta">No hosts yet - add one below.</div>';
+
+  el.querySelectorAll('[data-delete-host]').forEach(btn => {
+    btn.addEventListener('click', () => deleteHost(btn.dataset.deleteHost));
+  });
+  el.querySelectorAll('[data-delete-service]').forEach(btn => {
+    btn.addEventListener('click', () => deleteService(btn.dataset.deleteService));
+  });
+
+  const select = document.getElementById('service-host-select');
+  select.innerHTML = hosts.length
+    ? hosts.map(h => `<option value="${h.id}">${h.name}</option>`).join('')
+    : '<option value="">No hosts yet</option>';
+}
+
+function renderPortainerEndpoints(endpoints) {
+  const el = document.getElementById('settings-portainer-list');
+  el.innerHTML = endpoints.length ? endpoints.map(e => `
+    <div class="settings-list-item">
+      <span><strong>${e.name}</strong> <span class="item-meta">${e.base_url}</span></span>
+      <button class="btn-delete" data-delete-endpoint="${e.id}">Remove</button>
+    </div>
+  `).join('') : '<div class="item-meta">No Portainer endpoints configured.</div>';
+
+  el.querySelectorAll('[data-delete-endpoint]').forEach(btn => {
+    btn.addEventListener('click', () => deleteEndpoint(btn.dataset.deleteEndpoint));
+  });
+}
+
+async function loadSettings() {
+  const [mapRes, endpointsRes] = await Promise.all([
+    fetch('/api/map'),
+    fetch('/api/portainer-endpoints'),
+  ]);
+  const mapData = await mapRes.json();
+  const endpoints = await endpointsRes.json();
+  renderSettingsHosts(mapData.demo ? [] : mapData.hosts);
+  renderPortainerEndpoints(endpoints);
+}
+
+async function deleteHost(id) {
+  if (!confirm('Remove this host and all its services?')) return;
+  await fetch(`/api/hosts/${id}`, { method: 'DELETE' });
+  loadSettings();
+}
+
+async function deleteService(id) {
+  if (!confirm('Remove this service?')) return;
+  await fetch(`/api/services/${id}`, { method: 'DELETE' });
+  loadSettings();
+}
+
+async function deleteEndpoint(id) {
+  if (!confirm('Remove this Portainer endpoint? Hosts/services it created stay until removed separately.')) return;
+  await fetch(`/api/portainer-endpoints/${id}`, { method: 'DELETE' });
+  loadSettings();
+}
+
+document.getElementById('form-add-host').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const body = {
+    name: form.name.value,
+    type: form.type.value,
+    ip: form.ip.value || null,
+    description: form.description.value || null,
+  };
+  const res = await fetch('/api/hosts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+  if (!res.ok) {
+    const err = await res.json();
+    showFormError('error-add-host', err.error || 'Failed to add host');
+    return;
+  }
+  hideFormError('error-add-host');
+  form.reset();
+  loadSettings();
+});
+
+document.getElementById('form-add-service').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const body = {
+    host_id: form.host_id.value,
+    name: form.name.value,
+    port: form.port.value ? parseInt(form.port.value, 10) : null,
+    url: form.url.value || null,
+    notes: form.notes.value || null,
+  };
+  const res = await fetch('/api/services', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+  if (!res.ok) {
+    const err = await res.json();
+    showFormError('error-add-service', err.error || 'Failed to add service');
+    return;
+  }
+  hideFormError('error-add-service');
+  form.reset();
+  loadSettings();
+});
+
+document.getElementById('form-add-portainer').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const body = {
+    name: form.name.value,
+    base_url: form.base_url.value,
+    api_key: form.api_key.value,
+  };
+  const res = await fetch('/api/portainer-endpoints', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+  if (!res.ok) {
+    const err = await res.json();
+    showFormError('error-add-portainer', err.error || 'Failed to add endpoint');
+    return;
+  }
+  hideFormError('error-add-portainer');
+  form.reset();
+  loadSettings();
+});
+
+document.getElementById('btn-sync-now').addEventListener('click', async () => {
+  const statusEl = document.getElementById('sync-status');
+  statusEl.textContent = 'Syncing...';
+  const res = await fetch('/api/portainer-endpoints/sync-now', { method: 'POST' });
+  const data = await res.json();
+  const totalHosts = data.results.reduce((sum, r) => sum + r.hosts, 0);
+  const totalErrors = data.results.reduce((sum, r) => sum + r.errors.length, 0);
+  statusEl.textContent = totalErrors ? `Synced with ${totalErrors} error(s) - check server logs` : `Synced ${totalHosts} host(s)`;
+  loadSettings();
+});
 
 loadMap();
 setInterval(() => {

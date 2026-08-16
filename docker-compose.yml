@@ -5,6 +5,11 @@ services:
       dockerfile: Dockerfile
     container_name: homelab-map
     restart: unless-stopped
+    # Uncomment to require HTTP Basic Auth on the whole app (recommended
+    # if this is reachable beyond your trusted LAN):
+    # environment:
+    #   - ADMIN_USERNAME=admin
+    #   - ADMIN_PASSWORD=change_me
     volumes:
       - ./volumes/homelab-map:/data
     ports:
